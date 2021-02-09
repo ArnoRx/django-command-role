@@ -1,0 +1,11 @@
+---
+python_version: 3.8.7
+# Define the root directory for the Python install location,
+python_path: "/usr/local/python{{ python_version[:3] }}"
+django_project_name: ""
+django_project_username: ""
+django_project_dest_folder: "/opt/{{ django_project_name }}"
+django_project_repo_url: ""
+django_project_target_branch: "develop"
+django_project_requirements: "{{ django_project_dest_folder }}/requirements.txt"
+django_project_additionnal_dependencies: ""

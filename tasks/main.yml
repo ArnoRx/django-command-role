@@ -1,0 +1,86 @@
+---
+- name: Create django project user
+  user:
+    name: "{{ django_project_username }}"
+    state: present
+  when: django_project_username != ""
+
+- name: Ensure git is installed
+  apt:
+    name: git
+    state: present
+
+- name: Clone project
+  git:
+    repo: "{{ django_project_repo_url }}"
+    clone: true
+    dest: "{{ django_project_dest_folder }}"
+    version: "{{ django_project_target_branch }}"
+    force: yes
+
+- name: Ensure permissions on django_project install
+  file:
+    path: "{{ django_project_dest_folder }}"
+    state: directory
+    owner: "{{ django_project_user | default('root') }}"
+    group: "{{ django_project_user | default('root') }}"
+    recurse: true
+  changed_when: false
+
+- name: Install python interpreter from sources
+  include_role:
+    name: compile-python
+
+- name: Check that the requirements.txt exists
+  stat:
+    path: "{{ django_project_dest_folder }}/requirements.txt"
+  register: requirements_stat
+
+- name: Install virtualenv
+  pip:
+    name: virtualenv
+    executable: "/usr/local/python{{ python_version[:3] }}/bin/pip{{ python_version[:3] }}"
+    state: present
+  remote_user: "{{ django_project_user | default('root') }}"
+
+- name: Install dependencies
+  pip:
+    requirements: "{{ django_project_dest_folder }}/requirements.txt"
+    virtualenv: "{{ django_project_dest_folder }}/env/"
+    virtualenv_python: "/usr/local/python{{ python_version[:3] }}/bin/python{{ python_version[:3] }}"
+    virtualenv_command: "/usr/local/python{{ python_version[:3] }}/bin/virtualenv"
+  remote_user: "{{ django_project_user | default('root') }}"
+  when: requirements_stat.stat.exists
+
+- name: Install additionnal dependencies
+  pip:
+    requirements: "{{ django_project_additionnal_dependencies }}"
+    virtualenv: "{{ django_project_dest_folder }}/env/"
+    virtualenv_python: "/usr/local/python{{ python_version[:3] }}/bin/python{{ python_version[:3] }}"
+    virtualenv_command: "/usr/local/python{{ python_version[:3] }}/bin/virtualenv"
+  when: django_project_additionnal_dependencies != ""
+
+- name: Pull template from repo
+  ansible.builtin.fetch:
+    src: "{{ django_project_dest_folder }}/central/settings_local.py.j2"
+    dest: "/tmp/{{ django_project_name }}/settings_local.py.j2"
+    flat: yes
+  remote_user: "{{ django_project_user | default('root') }}"
+
+- name: Add django settings files
+  template:
+    src: "/home/nono/Modèles/LaSolutionRunning/spode-central/central/settings_local.py.j2"
+    dest: "{{ django_project_dest_folder }}/central/settings_local.py"
+    force: true
+    owner: "{{ django_project_user | default('root') }}"
+    group: "{{ django_project_user | default('root') }}"
+    mode: 0644
+  remote_user: "{{ django_project_user | default('root') }}"
+
+- name: Ensures log dir exists
+  file:
+    path: "{{ django_project_log_file | dirname }}"
+    state: directory
+  remote_user: "{{ django_project_user | default('root') }}"
+
+- include_tasks: crontab.yml

@@ -1,0 +1,32 @@
+---
+- name: Creates transferring product from pilot site to {{ item.key }} prod
+  cron:
+    hour: "2"
+    weekday: "WED,FRI,SUN"
+    name: "Transfert des fiches produits du pilote sur la boutique {{ item.key }}"
+    cron_file: "transferring-product-{{ item.key | lower }}-to-eshop"
+    user: "{{ django_project_user | default('root') }}"
+    job: "{{ django_project_dest_folder }}/env/bin/python {{ django_project_dest_folder }}/manage.py forward_data_beetween_shop -s {{ shop_pilot_instance }} -t {{ item.key }}"
+  loop: "{{ shop_global_configuration | dict2items }}"
+  when: item.key != "{{ shop_pilot_instance }}"
+
+- name: Creates {{ item.key }} transferring product to pilot
+  cron:
+    hour: "2"
+    weekday: "MON,TUE,THU"
+    name: "Transfert des fiches produits du pilote sur la boutique {{ item.key }}"
+    cron_file: "transferring-product-{{ item.key | lower }}-to-pilot"
+    user: "{{ django_project_user | default('root') }}"
+    job: "{{ django_project_dest_folder }}/env/bin/python {{ django_project_dest_folder }}/manage.py products_from_cash_register_software_to_pilot -s {{ item.key }}"
+  loop: "{{ shop_global_configuration | dict2items }}"
+  when: item.key != "{{ shop_pilot_instance }}"
+
+- name: Creates {{ item.key }} shop transferring stock to eshop
+  cron:
+    hour: "*/12"
+    name: "Transfert des fiches produits du pilote sur la boutique {{ item.key }}"
+    cron_file: "transferring-stock-{{ item.key | lower }}-to-eshop"
+    user: "{{ django_project_user | default('root') }}"
+    job: "{{ django_project_dest_folder }}/env/bin/python {{ django_project_dest_folder }}/manage.py update_stock_on_eshop -s {{ shop_pilot_instance }}"
+  loop: "{{ shop_global_configuration | dict2items }}"
+  when: item.key != "{{ shop_pilot_instance }}"
